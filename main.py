@@ -75,20 +75,20 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
 
             # RELEVANT
             index_row += 1
-            P[index_row, get_index(
-                a+1, h, IRRELEVANT, rounds, fork_states_num), WAIT] = alpha
-            P[index_row, get_index(
-                a, h+1, RELEVANT, rounds, fork_states_num), WAIT] = 1-alpha
+            P[WAIT, index_row, get_index(
+                a+1, h, IRRELEVANT, rounds, fork_states_num)] = alpha
+            P[WAIT, index_row, get_index(
+                a, h+1, RELEVANT, rounds, fork_states_num)] = 1-alpha
 
             # ACTIVE
             index_row += 1
-            P[index_row, get_index(
-                a+1, h, ACTIVE, rounds, fork_states_num), WAIT] = alpha
+            P[WAIT, index_row, get_index(
+                a+1, h, ACTIVE, rounds, fork_states_num)] = alpha
             #  这里错了，要注意。
-            P[index_row, get_index(
-                a-h, 1, RELEVANT, rounds, fork_states_num), WAIT] = gamma*(1-alpha)
-            P[index_row, get_index(
-                a, h+1, RELEVANT, rounds, fork_states_num), WAIT] = (1-gamma)*(1-alpha)
+            P[WAIT, index_row, get_index(
+                a-h, 1, RELEVANT, rounds, fork_states_num)] = gamma*(1-alpha)
+            P[WAIT, index_row, get_index(
+                a, h+1, RELEVANT, rounds, fork_states_num)] = (1-gamma)*(1-alpha)
 
     # probability under action match.
     for a in range(0, rounds-1):
@@ -96,12 +96,12 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
             if a >= h:
                 index_row = get_index(
                     a, h, RELEVANT, rounds, fork_states_num)
-                P[index_row, get_index(
-                    a+1, h, ACTIVE, rounds, fork_states_num), MATCH] = alpha
-                P[index_row, get_index(
-                    a-h, 1, RELEVANT, rounds, fork_states_num), MATCH] = gamma*(1-alpha)
-                P[index_row, get_index(
-                    a, h+1, RELEVANT, rounds, fork_states_num), MATCH] = (1-gamma)*(1-alpha)
+                P[MATCH, index_row, get_index(
+                    a+1, h, ACTIVE, rounds, fork_states_num)] = alpha
+                P[MATCH, index_row, get_index(
+                    a-h, 1, RELEVANT, rounds, fork_states_num)] = gamma*(1-alpha)
+                P[MATCH, index_row, get_index(
+                    a, h+1, RELEVANT, rounds, fork_states_num)] = (1-gamma)*(1-alpha)
     return P
 
 
@@ -159,8 +159,6 @@ if __name__ == "__main__":
         states_num, action_num, rounds, fork_states_num, gamma)
     R = generate_reward_matrix(
         states_num, action_num, rounds, fork_states_num, rho)
-    print(P.shape)
-    print(R.shape)
     # rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, max_iter=max_iter)
     # rvi.run()
     # print(rvi.policy)
