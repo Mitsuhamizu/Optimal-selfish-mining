@@ -1,5 +1,4 @@
 import mdptoolbox.example
 
 P, R = mdptoolbox.example.forest()
-print(P.shape)
-print(R.shape)
+print(P[0, 0, 1])

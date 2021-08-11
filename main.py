@@ -31,13 +31,13 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
     adversary_height, honest_height = 1, 0
     index_column_current = get_index(adversary_height, honest_height,
                                      IRRELEVANT, rounds, fork_states_num)
-    P[ADOPT, :, index_column_current] = alpha
+    P[ADOPT, :, index_column_current] += alpha
     # with probablity 1 - alpha to (0, 1, IRRELEVANT) I am not sure if it should be (0, 1, RELEVANT)
     # 可能是错的。
     adversary_height, honest_height = 0, 1
     index_column_current = get_index(adversary_height, honest_height,
                                      IRRELEVANT, rounds, fork_states_num)
-    P[ADOPT, :, index_column_current] = 1-alpha
+    P[ADOPT, :, index_column_current] += 1-alpha
 
     # probability under action override.
     # only works for a > h.
@@ -54,13 +54,13 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
                 index_column_current = get_index(
                     (a-h), 0, IRRELEVANT, rounds, fork_states_num)
                 P[OVERRIDE, index_row_begin:index_row_end+1,
-                    index_column_current] = alpha
+                    index_column_current] += alpha
 
                 # with probablity alpha to ((a - h - 1), 1, 1).
                 index_column_current = get_index(
                     (a-h-1), 1, RELEVANT, rounds, fork_states_num)
                 P[OVERRIDE, index_row_begin:index_row_end+1,
-                    index_column_current] = 1-alpha
+                    index_column_current] += 1-alpha
 
     # probability under action wait.
     for a in range(0, rounds-1):
@@ -69,26 +69,36 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
             index_row = get_index(
                 a, h, IRRELEVANT, rounds, fork_states_num)
             P[WAIT, index_row, get_index(
-                a+1, h, IRRELEVANT, rounds, fork_states_num)] = alpha
+                a+1, h, IRRELEVANT, rounds, fork_states_num)] += alpha
             P[WAIT, index_row, get_index(
-                a, h+1, RELEVANT, rounds, fork_states_num)] = 1-alpha
+                a, h+1, RELEVANT, rounds, fork_states_num)] += 1-alpha
 
             # RELEVANT
             index_row += 1
             P[WAIT, index_row, get_index(
-                a+1, h, IRRELEVANT, rounds, fork_states_num)] = alpha
+                a+1, h, IRRELEVANT, rounds, fork_states_num)] += alpha
             P[WAIT, index_row, get_index(
-                a, h+1, RELEVANT, rounds, fork_states_num)] = 1-alpha
+                a, h+1, RELEVANT, rounds, fork_states_num)] += 1-alpha
 
             # ACTIVE
             index_row += 1
             P[WAIT, index_row, get_index(
-                a+1, h, ACTIVE, rounds, fork_states_num)] = alpha
+                a+1, h, ACTIVE, rounds, fork_states_num)] += alpha
             #  这里错了，要注意。
             P[WAIT, index_row, get_index(
-                a-h, 1, RELEVANT, rounds, fork_states_num)] = gamma*(1-alpha)
+                a-h, 1, RELEVANT, rounds, fork_states_num)] += gamma*(1-alpha)
             P[WAIT, index_row, get_index(
-                a, h+1, RELEVANT, rounds, fork_states_num)] = (1-gamma)*(1-alpha)
+                a, h+1, RELEVANT, rounds, fork_states_num)] += (1-gamma)*(1-alpha)
+
+            # if sum(P[WAIT, index_row, ]) != 1:
+            #     print("a: {}, h: {}".format(a, h))
+            #     print("row: ", index_row)
+            #     print("case1: ", get_index(
+            #         a+1, h, ACTIVE, rounds, fork_states_num))
+            #     print("case2: ", get_index(
+            #         a-h, 1, RELEVANT, rounds, fork_states_num))
+            #     print("case3: ", get_index(
+            #         a, h+1, RELEVANT, rounds, fork_states_num))
 
     # probability under action match.
     for a in range(0, rounds-1):
@@ -97,11 +107,17 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
                 index_row = get_index(
                     a, h, RELEVANT, rounds, fork_states_num)
                 P[MATCH, index_row, get_index(
-                    a+1, h, ACTIVE, rounds, fork_states_num)] = alpha
+                    a+1, h, ACTIVE, rounds, fork_states_num)] += alpha
                 P[MATCH, index_row, get_index(
-                    a-h, 1, RELEVANT, rounds, fork_states_num)] = gamma*(1-alpha)
+                    a-h, 1, RELEVANT, rounds, fork_states_num)] += gamma*(1-alpha)
                 P[MATCH, index_row, get_index(
-                    a, h+1, RELEVANT, rounds, fork_states_num)] = (1-gamma)*(1-alpha)
+                    a, h+1, RELEVANT, rounds, fork_states_num)] += (1-gamma)*(1-alpha)
+
+    # for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+    #     for num in range(0, states_num):
+    #         if sum(P[action, num, :]) != 1:
+    #             P[action, num, :] = 0
+    #             P[action, num, num] = 1
     return P
 
 
@@ -113,8 +129,8 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, rho)
             index_row_begin = get_index(
                 a, h, IRRELEVANT, rounds, fork_states_num)
             index_row_end = index_row_begin+2
-            R[index_row_begin:index_row_end+1, ADOPT] = -rho * h
-            R[index_row_begin:index_row_end+1, ADOPT] = -rho * h
+            R[index_row_begin:index_row_end+1, ADOPT] += -rho * h
+            R[index_row_begin:index_row_end+1, ADOPT] += -rho * h
     # reward under action override.
     for a in range(0, rounds-1):
         for h in range(0, rounds-1):
@@ -123,34 +139,35 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, rho)
                     a, h, IRRELEVANT, rounds, fork_states_num)
                 index_row_end = index_row_begin+2
 
-                R[index_row_begin:index_row_end+1, OVERRIDE] = (1-rho) * (h+1)
-                R[index_row_begin:index_row_end+1, OVERRIDE] = (1-rho) * (h+1)
+                R[index_row_begin:index_row_end+1, OVERRIDE] += (1-rho) * (h+1)
+                R[index_row_begin:index_row_end+1, OVERRIDE] += (1-rho) * (h+1)
     # reward under action wait.
     for a in range(0, rounds-1):
         for h in range(0, rounds-1):
             # ACTIVE
             index_row = get_index(
                 a, h, ACTIVE, rounds, fork_states_num)
-            R[index_row, WAIT] = (1-rho)*h
+            R[index_row, WAIT] += (1-rho)*h
 
     # reward under action match.
     for a in range(0, rounds-1):
         for h in range(0, rounds-1):
             index_row = get_index(
                 a, h, RELEVANT, rounds, fork_states_num)
-            R[index_row, MATCH] = (1-rho)*h
+            R[index_row, MATCH] += (1-rho)*h
     return R
 
 
 if __name__ == "__main__":
     low, high, epsilon = 0, 1, pow(10, -5)
-    rounds = 76
+    rounds = 20
     max_iter = 1000
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
     action_num = 4
-    alpha, gamma = 0.45, 0.5
-    rho = (low+high)/2
+    alpha, gamma = 0.35, 0.5
+    # rho = (low+high)/2
+    rho = 0.37
     fork_states_num = 3
     # generate P.
     # four actions: adopt, override, wait, match.
@@ -159,9 +176,19 @@ if __name__ == "__main__":
         states_num, action_num, rounds, fork_states_num, gamma)
     R = generate_reward_matrix(
         states_num, action_num, rounds, fork_states_num, rho)
+
+    counter = 0
+    for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+        P_iter = P[action, :, :]
+        for num in range(0, states_num):
+            if sum(P_iter[num, :]) != 0 and sum(P_iter[num, :]) != 1:
+                counter += 1
+                # print(sum(P_iter[num, :]))
+                # print("wrong!")
+    print(counter)
     # rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, max_iter=max_iter)
     # rvi.run()
-    # print(rvi.policy)
+    # print(rvi.average_reward)
     # while high-low > epsilon:
     #     rho = (low+high)/2
 
