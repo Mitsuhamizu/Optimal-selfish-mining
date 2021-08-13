@@ -1,5 +1,8 @@
+import datetime
+
 import mdptoolbox
 import numpy as np
+from scipy.sparse import csr_matrix as sparse
 
 IRRELEVANT, RELEVANT, ACTIVE = 0, 1, 2
 
@@ -7,13 +10,19 @@ ADOPT, OVERRIDE, WAIT, MATCH = 0, 1, 2, 3
 
 
 def get_index(a, h, f, rounds, fork_states_num):
-    # A * rounds * fork_states_num + H * fork_states_num + F
     return a * rounds * fork_states_num + h * fork_states_num + f
+
+
+def clear_value_in_diagonal(matrix, index):
+    matrix[index][index] = 0
 
 
 def generate_probability_matrix(states_num, action_num, rounds, fork_states_num, gamma):
 
     P = np.zeros([action_num, states_num, states_num])
+
+    for action in [OVERRIDE, WAIT, MATCH]:
+        np.fill_diagonal(P[action], 1)
     # the structure of probability is (A, H, F)
     # irrelevant = 0, relevant =1, active = 2
     # (0, 0, 0)
@@ -49,6 +58,8 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
                     a, h, IRRELEVANT, rounds, fork_states_num)
                 index_row_end = get_index(
                     a, h, ACTIVE, rounds, fork_states_num)
+                for index in range(index_row_begin, index_row_end+1):
+                    clear_value_in_diagonal(P[OVERRIDE], index)
 
                 # with probablity alpha to ((a - h), 0, 0).
                 index_column_current = get_index(
@@ -68,6 +79,7 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
             # IRRELEVANT
             index_row = get_index(
                 a, h, IRRELEVANT, rounds, fork_states_num)
+            clear_value_in_diagonal(P[WAIT], index_row)
             P[WAIT, index_row, get_index(
                 a+1, h, IRRELEVANT, rounds, fork_states_num)] += alpha
             P[WAIT, index_row, get_index(
@@ -75,6 +87,7 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
 
             # RELEVANT
             index_row += 1
+            clear_value_in_diagonal(P[WAIT], index_row)
             P[WAIT, index_row, get_index(
                 a+1, h, IRRELEVANT, rounds, fork_states_num)] += alpha
             P[WAIT, index_row, get_index(
@@ -82,6 +95,7 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
 
             # ACTIVE
             index_row += 1
+            clear_value_in_diagonal(P[WAIT], index_row)
             P[WAIT, index_row, get_index(
                 a+1, h, ACTIVE, rounds, fork_states_num)] += alpha
             #  这里错了，要注意。
@@ -106,6 +120,7 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
             if a >= h:
                 index_row = get_index(
                     a, h, RELEVANT, rounds, fork_states_num)
+                clear_value_in_diagonal(P[MATCH], index_row)
                 P[MATCH, index_row, get_index(
                     a+1, h, ACTIVE, rounds, fork_states_num)] += alpha
                 P[MATCH, index_row, get_index(
@@ -113,11 +128,9 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
                 P[MATCH, index_row, get_index(
                     a, h+1, RELEVANT, rounds, fork_states_num)] += (1-gamma)*(1-alpha)
 
-    # for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-    #     for num in range(0, states_num):
-    #         if sum(P[action, num, :]) != 1:
-    #             P[action, num, :] = 0
-    #             P[action, num, num] = 1
+    P = [sparse(P[ADOPT]), sparse(P[OVERRIDE]),
+         sparse(P[WAIT]), sparse(P[MATCH])]
+
     return P
 
 
@@ -155,43 +168,38 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, rho)
             index_row = get_index(
                 a, h, RELEVANT, rounds, fork_states_num)
             R[index_row, MATCH] += (1-rho)*h
+
+    # R = sparse(R)
     return R
 
 
 if __name__ == "__main__":
+    starttime = datetime.datetime.now()
     low, high, epsilon = 0, 1, pow(10, -5)
-    rounds = 20
-    max_iter = 1000
+    rounds = 95
+
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
-    action_num = 4
-    alpha, gamma = 0.35, 0.5
-    # rho = (low+high)/2
-    rho = 0.37
-    fork_states_num = 3
-    # generate P.
     # four actions: adopt, override, wait, match.
+    action_num = 4
+    alpha, gamma = 0.35, 0
+    fork_states_num = 3
 
+    # generate P.
     P = generate_probability_matrix(
         states_num, action_num, rounds, fork_states_num, gamma)
-    R = generate_reward_matrix(
-        states_num, action_num, rounds, fork_states_num, rho)
 
-    counter = 0
-    for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-        P_iter = P[action, :, :]
-        for num in range(0, states_num):
-            if sum(P_iter[num, :]) != 0 and sum(P_iter[num, :]) != 1:
-                counter += 1
-                # print(sum(P_iter[num, :]))
-                # print("wrong!")
-    print(counter)
-    # rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, max_iter=max_iter)
-    # rvi.run()
-    # print(rvi.average_reward)
-    # while high-low > epsilon:
-    #     rho = (low+high)/2
+    while high-low > epsilon/8:
+        rho = (low+high)/2
+        print("current_rho {}".format(rho))
 
-    #     # generate Reward with different rho.
+        # generate Reward with different rho.
+        R = generate_reward_matrix(
+            states_num, action_num, rounds, fork_states_num, rho)
 
-    #     print(vi.policy)
+        rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
+        rvi.run()
+        if rvi.average_reward > 0:
+            low = rho
+        else:
+            high = rho
