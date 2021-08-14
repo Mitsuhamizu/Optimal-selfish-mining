@@ -93,10 +93,10 @@ def adopt_reward(matrix, rounds, fork_states_num, alpha, rho, pay_type):
                 else:
                     if a >= h:
                         matrix[index_row_begin: index_row_end +
-                               1:, index_column_current] += (1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
+                               1:, index_column_current] += (1-rho)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
                     else:
                         matrix[index_row_begin: index_row_end +
-                               1:, index_column_current] += (1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
+                               1:, index_column_current] += (1-rho)*(1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
 
                 adversary_height, honest_height = 0, 1
                 index_column_current = get_index(adversary_height, honest_height,
@@ -107,10 +107,10 @@ def adopt_reward(matrix, rounds, fork_states_num, alpha, rho, pay_type):
                 else:
                     if a >= h:
                         matrix[index_row_begin: index_row_end +
-                               1:, index_column_current] += (1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
+                               1:, index_column_current] += (1-rho)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
                     else:
                         matrix[index_row_begin: index_row_end +
-                               1:, index_column_current] += (1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
+                               1:, index_column_current] += (1-rho)*(1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
 
     return matrix
 
@@ -254,10 +254,10 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
             else:
                 if a >= h:
                     R[ADOPT, index_row_begin:index_row_end +
-                      1, index_column_current] += (1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
+                      1, index_column_current] += (1-rho)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
                 else:
                     R[ADOPT, index_row_begin:index_row_end +
-                      1, index_column_current] += (1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
+                      1, index_column_current] += (1-rho)*(1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
 
             adversary_height, honest_height = 0, 1
             index_column_current = get_index(adversary_height, honest_height,
@@ -268,10 +268,10 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
             else:
                 if a >= h:
                     R[ADOPT, index_row_begin:index_row_end +
-                      1, index_column_current] += (1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
+                      1, index_column_current] += (1-rho)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2))+1/2*((a-h)/(1-2*alpha)+a+h)
                 else:
                     R[ADOPT, index_row_begin:index_row_end +
-                      1, index_column_current] += (1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
+                      1, index_column_current] += (1-rho)*(1-pow(alpha/(1-alpha), h-a))*(-rho*h)+pow(alpha/(1-alpha), h-a)*(1-rho)*(alpha*(1-alpha)/pow(1-2*alpha, 2)+(h-a)/(1-2*alpha))
 
     # reward under action override.
     for a in range(0, rounds-1):
@@ -319,6 +319,14 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
         R[action] = adopt_reward(
             R[action], rounds, fork_states_num, alpha, rho, pay_type)
 
+    for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+        column_names = [get_state(index, rounds, fork_states_num)
+                        for index in range(0, states_num)]
+        row_name = [get_state(index, rounds, fork_states_num)
+                    for index in range(0, states_num)]
+        df = pd.DataFrame(R[action], columns=column_names, index=row_name)
+        df.to_csv('R-{}.csv'.format(actions[action]), sep='\t')
+
     R = [sparse(R[ADOPT]), sparse(R[OVERRIDE]),
          sparse(R[WAIT]), sparse(R[MATCH])]
     return R
@@ -327,7 +335,7 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
 if __name__ == "__main__":
     starttime = datetime.datetime.now()
     low, high, epsilon = 0, 1, pow(10, -5)
-    rounds = 20
+    rounds = 5
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
