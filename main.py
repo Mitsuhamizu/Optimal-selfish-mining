@@ -303,21 +303,18 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, rho)
 if __name__ == "__main__":
     starttime = datetime.datetime.now()
     low, high, epsilon = 0, 1, pow(10, -5)
-    rounds = 20
+    rounds = 95
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
     # four actions: adopt, override, wait, match.
     action_num = 4
-    alpha, gamma = 0.25, 0.5
+    alpha, gamma = 0.4, 0
     fork_states_num = 3
 
     # generate P.
     P = generate_probability_matrix(
         states_num, action_num, rounds, fork_states_num, gamma)
-
-    rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
-    rvi.run()
 
     while high-low > epsilon/8:
         rho = (low+high)/2
