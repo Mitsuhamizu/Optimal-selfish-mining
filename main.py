@@ -355,15 +355,22 @@ if __name__ == "__main__":
             low = rho
         else:
             high = rho
+
     # OVERPAYING
+    high = min(rho+0.1, 1)
 
-    low_bound = rho-epsilon
-    rho_prime = max(low-epsilon/4, 0)
+    while high-low > epsilon/8:
+        rho = (low+high)/2
+        print("current_rho {}".format(rho))
 
-    # generate Reward with different rho.
-    R = generate_reward_matrix(
-        states_num, action_num, rounds, fork_states_num, alpha, rho_prime, OVERPAYING)
-    rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
-    rvi.run()
-    upper_bound = rho_prime*2*(rvi.average_reward+epsilon/8)
-    print(upper_bound)
+        # generate Reward with different rho.
+        R = generate_reward_matrix(
+            states_num, action_num, rounds, fork_states_num, alpha, rho, OVERPAYING)
+
+        rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
+        rvi.run()
+        if rvi.average_reward > 0:
+            low = rho
+        else:
+            high = rho
+    print("upper bound: ", rho)
