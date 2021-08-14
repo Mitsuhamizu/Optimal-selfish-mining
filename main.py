@@ -67,17 +67,6 @@ def adopt_probability(matrix, rounds, fork_states_num, alpha):
                                                  IRRELEVANT, rounds, fork_states_num)
                 matrix[index_row_begin: index_row_end +
                        1:, index_column_current] += 1-alpha
-                for index_iter in range(index_row_begin, index_row_end+1):
-                    if sum(matrix[index_iter]) != 1:
-                        print(matrix[index_iter][index_iter])
-
-                        print(matrix[index_iter][get_index(
-                            1, 0, IRRELEVANT, rounds, fork_states_num)])
-                        print(matrix[index_iter][get_index(
-                            0, 1, IRRELEVANT, rounds, fork_states_num)])
-
-                        print(sum(matrix[index_iter]))
-                        print("wrong")
     return matrix
 
 
