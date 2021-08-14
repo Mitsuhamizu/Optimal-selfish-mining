@@ -213,13 +213,6 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
     for action in [OVERRIDE, WAIT, MATCH]:
         P[action] = adopt_probability(
             P[action], rounds, fork_states_num, alpha)
-    # for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-    #     column_names = [get_state(index, rounds, fork_states_num)
-    #                     for index in range(0, states_num)]
-    #     row_name = [get_state(index, rounds, fork_states_num)
-    #                 for index in range(0, states_num)]
-    #     df = pd.DataFrame(P[action], columns=column_names, index=row_name)
-    #     df.to_csv('P-{}.csv'.format(action), sep='\t')
 
     P = [sparse(P[ADOPT]), sparse(P[OVERRIDE]),
          sparse(P[WAIT]), sparse(P[MATCH])]
@@ -302,13 +295,6 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, rho)
         R[action] = adopt_reward(
             R[action], rounds, fork_states_num, rho)
 
-    for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-        column_names = [get_state(index, rounds, fork_states_num)
-                        for index in range(0, states_num)]
-        row_name = [get_state(index, rounds, fork_states_num)
-                    for index in range(0, states_num)]
-        df = pd.DataFrame(R[action], columns=column_names, index=row_name)
-        df.to_csv('R-{}.csv'.format(action), sep='\t')
     R = [sparse(R[ADOPT]), sparse(R[OVERRIDE]),
          sparse(R[WAIT]), sparse(R[MATCH])]
     return R
@@ -330,35 +316,20 @@ if __name__ == "__main__":
     P = generate_probability_matrix(
         states_num, action_num, rounds, fork_states_num, gamma)
 
-    # generate Reward with different rho.
-    R = generate_reward_matrix(
-        states_num, action_num, rounds, fork_states_num, rho)
-
     rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
     rvi.run()
-    print(rvi.average_reward)
-    policy = []
-    for action in list(rvi.policy):
-        policy.append(actions[action])
-    policy = np.reshape(policy, [size(policy), 1])
 
-    row_name = [get_state(index, rounds, fork_states_num)
-                for index in range(0, states_num)]
+    while high-low > epsilon/8:
+        rho = (low+high)/2
+        print("current_rho {}".format(rho))
 
-    column_names = ["action"]
-    df = pd.DataFrame(policy, columns=column_names, index=row_name)
-    df.to_csv('policy.csv', sep='\t')
-    # while high-low > epsilon/8:
-    #     rho = (low+high)/2
-    #     print("current_rho {}".format(rho))
+        # generate Reward with different rho.
+        R = generate_reward_matrix(
+            states_num, action_num, rounds, fork_states_num, rho)
 
-    #     # generate Reward with different rho.
-    #     R = generate_reward_matrix(
-    #         states_num, action_num, rounds, fork_states_num, rho)
-
-    #     rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
-    #     rvi.run()
-    #     if rvi.average_reward > 0:
-    #         low = rho
-    #     else:
-    #         high = rho
+        rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
+        rvi.run()
+        if rvi.average_reward > 0:
+            low = rho
+        else:
+            high = rho
