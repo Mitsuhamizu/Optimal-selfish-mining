@@ -89,7 +89,7 @@ def adopt_reward(matrix, rounds, fork_states_num, alpha, rho, pay_type):
                                                  IRRELEVANT, rounds, fork_states_num)
                 if pay_type == UNDERPAYING:
                     matrix[index_row_begin: index_row_end +
-                           1:, index_column_current] += -rho * h
+                           1:, index_column_current] += -100000
                 else:
                     if a >= h:
                         matrix[index_row_begin: index_row_end +
@@ -103,7 +103,7 @@ def adopt_reward(matrix, rounds, fork_states_num, alpha, rho, pay_type):
                                                  IRRELEVANT, rounds, fork_states_num)
                 if pay_type == UNDERPAYING:
                     matrix[index_row_begin: index_row_end +
-                           1:, index_column_current] += -rho * h
+                           1:, index_column_current] += -100000
                 else:
                     if a >= h:
                         matrix[index_row_begin: index_row_end +
