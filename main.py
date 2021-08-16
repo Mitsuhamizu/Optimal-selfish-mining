@@ -325,25 +325,16 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
         A[action], H[action] = adopt_reward(A[action], H[action],
                                             rounds, fork_states_num, alpha, rho, pay_type)
 
-    # for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-    #     column_names = [get_state(index, rounds, fork_states_num)
-    #                     for index in range(0, states_num)]
-    #     row_name = [get_state(index, rounds, fork_states_num)
-    #                 for index in range(0, states_num)]
-    #     df = pd.DataFrame(R[action], columns=column_names, index=row_name)
-    #     df.to_csv('R-{}.csv'.format(actions[action]), sep='\t')
-
-    A = [sparse(A[ADOPT]), sparse(A[OVERRIDE]),
-         sparse(A[WAIT]), sparse(A[MATCH])]
-    H = [sparse(H[ADOPT]), sparse(H[OVERRIDE]),
-         sparse(H[WAIT]), sparse(H[MATCH])]
-
+    # print((1-rho)*A[ADOPT])
+    # print(H[ADOPT])
+    # print(rho)
+    # print((1-rho)*A[ADOPT].multiply(-rho*H[ADOPT]))
     return A, H
 
 
 if __name__ == "__main__":
     epsilon = pow(10, -4)
-    rounds = 10
+    rounds = 3
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
@@ -361,20 +352,30 @@ if __name__ == "__main__":
         # UNDERPAYING
         while high-low > epsilon/8:
             rho = (low+high)/2
-            print("current_rho: {}".format(rho))
+            # print("current_rho: {}".format(rho))
             R = []
             # generate Reward with different rho.
             A, H = generate_reward_matrix(
                 states_num, action_num, rounds, fork_states_num, alpha, rho, UNDERPAYING)
             for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-                R.append((1-rho)*A[action].multiply(-rho*H[action]))
+                A_prime = sparse((1-rho)*A[action])
+                H_prime = sparse(-rho*H[action])
+                R.append(A_prime._add_sparse(H_prime))
+
             rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
+            for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+                column_names = [get_state(index, rounds, fork_states_num)
+                                for index in range(0, states_num)]
+                row_name = [get_state(index, rounds, fork_states_num)
+                            for index in range(0, states_num)]
+                df = pd.DataFrame(R[action].todense(), columns=column_names, index=row_name)
+                df.to_csv('R-{}.csv'.format(actions[action]), sep='\t')
+            break
             rvi.run()
             if rvi.average_reward > 0:
                 low = rho
             else:
                 high = rho
-            print(rho)
         print("alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
 
     # # OVERPAYING
