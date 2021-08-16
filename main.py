@@ -318,13 +318,13 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
     for action in [OVERRIDE, WAIT, MATCH]:
         R[action] = adopt_reward(
             R[action], rounds, fork_states_num, alpha, rho, pay_type)
-    # for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-    #     column_names = [get_state(index, rounds, fork_states_num)
-    #                     for index in range(0, states_num)]
-    #     row_name = [get_state(index, rounds, fork_states_num)
-    #                 for index in range(0, states_num)]
-    #     df = pd.DataFrame(R[action], columns=column_names, index=row_name)
-    #     df.to_csv('R-{}.csv'.format(action), sep='\t')
+    for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+        column_names = [get_state(index, rounds, fork_states_num)
+                        for index in range(0, states_num)]
+        row_name = [get_state(index, rounds, fork_states_num)
+                    for index in range(0, states_num)]
+        df = pd.DataFrame(R[action], columns=column_names, index=row_name)
+        df.to_csv('R-{}.csv'.format(actions[action]), sep='\t')
     R = [sparse(R[ADOPT]), sparse(R[OVERRIDE]),
          sparse(R[WAIT]), sparse(R[MATCH])]
     return R
