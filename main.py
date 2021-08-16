@@ -334,7 +334,7 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
 
 if __name__ == "__main__":
     epsilon = pow(10, -4)
-    rounds = 3
+    rounds = 4
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
@@ -343,7 +343,7 @@ if __name__ == "__main__":
     gamma = 0
     fork_states_num = 3
     # for alpha in range(350, 500, 25):
-    for alpha in [200]:
+    for alpha in [400]:
         alpha /= 1000
         # generate P.
         P = generate_probability_matrix(
