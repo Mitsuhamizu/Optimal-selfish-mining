@@ -1,8 +1,11 @@
-import datetime
+
+import gc
+import os
 
 import mdptoolbox
 import numpy as np
 import pandas as pd
+import psutil
 from numpy.core.fromnumeric import size
 from numpy.core.numeric import Inf
 from numpy.lib.index_tricks import IndexExpression
@@ -26,6 +29,15 @@ actions[0] = "ADOPT"
 actions[1] = "OVERRIDE"
 actions[2] = "WAIT"
 actions[3] = "MATCH"
+
+
+def show_memory_info(hint):
+    pid = os.getpid()
+    p = psutil.Process(pid)
+
+    info = p.memory_full_info()
+    memory = info.uss / 1024. / 1024
+    print('{} memory used: {} MB'.format(hint, memory))
 
 
 def overpaying_reward_agh(rho, alpha, a, h):
@@ -90,6 +102,8 @@ def adopt_reward(A, H, rounds, fork_states_num, alpha, rho, pay_type):
                 index_row_end = index_row_begin+2
 
                 clear_value_in_diagonal(
+                    A, range(index_row_begin, index_row_end+1))
+                clear_value_in_diagonal(
                     H, range(index_row_begin, index_row_end+1))
 
                 adversary_height, honest_height = 1, 0
@@ -97,7 +111,7 @@ def adopt_reward(A, H, rounds, fork_states_num, alpha, rho, pay_type):
                                                  IRRELEVANT, rounds, fork_states_num)
                 if pay_type == UNDERPAYING:
                     H[index_row_begin: index_row_end +
-                      1:, index_column_current] = -100000
+                      1:, index_column_current] = h
                 else:
                     if a == rounds-1:
                         A[index_row_begin: index_row_end +
@@ -111,7 +125,7 @@ def adopt_reward(A, H, rounds, fork_states_num, alpha, rho, pay_type):
                                                  IRRELEVANT, rounds, fork_states_num)
                 if pay_type == UNDERPAYING:
                     H[index_row_begin: index_row_end +
-                      1:, index_column_current] = -100000
+                      1:, index_column_current] = h
                 else:
                     if a == rounds-1:
                         A[index_row_begin: index_row_end +
@@ -252,6 +266,8 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
 
             clear_value_in_diagonal(
                 A[ADOPT], range(index_row_begin, index_row_end+1))
+            clear_value_in_diagonal(
+                H[ADOPT], range(index_row_begin, index_row_end+1))
 
             adversary_height, honest_height = 1, 0
             index_column_current = get_index(adversary_height, honest_height,
@@ -291,6 +307,8 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
 
                 clear_value_in_diagonal(
                     A[OVERRIDE], range(index_row_begin, index_row_end+1))
+                clear_value_in_diagonal(
+                    H[OVERRIDE], range(index_row_begin, index_row_end+1))
 
                 index_column_current = get_index(
                     (a-h), 0, IRRELEVANT, rounds, fork_states_num)
@@ -309,6 +327,9 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
                 a, h, ACTIVE, rounds, fork_states_num)
             clear_value_in_diagonal(
                 A[WAIT], [index_row])
+            clear_value_in_diagonal(
+                H[WAIT], [index_row])
+
             A[WAIT, index_row, get_index(
                 a-h, 1, RELEVANT, rounds, fork_states_num)] += h
 
@@ -325,12 +346,16 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
         A[action], H[action] = adopt_reward(A[action], H[action],
                                             rounds, fork_states_num, alpha, rho, pay_type)
 
+    A = [sparse(A[ADOPT]), sparse(A[OVERRIDE]),
+         sparse(A[WAIT]), sparse(A[MATCH])]
+    H = [sparse(H[ADOPT]), sparse(H[OVERRIDE]),
+         sparse(H[WAIT]), sparse(H[MATCH])]
     return A, H
 
 
 if __name__ == "__main__":
-    epsilon = pow(10, -4)
-    rounds = 10
+    epsilon = pow(10, -5)
+    rounds = 100
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
@@ -339,48 +364,48 @@ if __name__ == "__main__":
     gamma = 0
     fork_states_num = 3
     # for alpha in range(350, 500, 25):
-    for alpha in [400]:
+    # for alpha in range(400, 500, 25):
+    for alpha in [450]:
         alpha /= 1000
-        # generate P.
         P = generate_probability_matrix(
             states_num, action_num, rounds, fork_states_num, alpha, gamma)
         low, high = 0, 1
+        show_memory_info('P: done')
         # UNDERPAYING
+        A, H = generate_reward_matrix(
+            states_num, action_num, rounds, fork_states_num, alpha, 0, UNDERPAYING)
+        show_memory_info('A, H done')
         while high-low > epsilon/8:
             rho = (low+high)/2
-            print("current_rho: {}".format(rho))
             R = []
             # generate Reward with different rho.
-            A, H = generate_reward_matrix(
-                states_num, action_num, rounds, fork_states_num, alpha, rho, UNDERPAYING)
             for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-
-                R.append(
-                    (1-rho)*sparse(A[action])._add_sparse(-rho*sparse(H[action])))
-
+                R.append((1-rho)*A[action]-rho*H[action])
+            show_memory_info('R done')
             rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
             rvi.run()
+
             if rvi.average_reward > 0:
                 low = rho
             else:
                 high = rho
         print("alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
 
-    # # OVERPAYING
-    # high = min(rho+0.1, 1)
+        # OVERPAYING
+        high = min(rho+0.1, 1)
 
-    # while high-low > epsilon/8:
-    #     rho = (low+high)/2
-    #     print("current_rho {}".format(rho))
+        while high-low > epsilon/8:
+            rho = (low+high)/2
 
-    #     # generate Reward with different rho.
-    #     R = generate_reward_matrix(
-    #         states_num, action_num, rounds, fork_states_num, alpha, rho, OVERPAYING)
-
-    #     rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
-    #     rvi.run()
-    #     if rvi.average_reward > 0:
-    #         low = rho
-    #     else:
-    #         high = rho
-    # print("upper bound: ", rho)
+            # generate Reward with different rho.
+            A, H = adopt_reward(
+                A, H, rounds, fork_states_num, alpha, rho, OVERPAYING)
+            for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+                R.append((1-rho)*A[action]-rho*H[action])
+            rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
+            rvi.run()
+            if rvi.average_reward > 0:
+                low = rho
+            else:
+                high = rho
+        print("upper bound: ", rho)
