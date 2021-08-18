@@ -1,5 +1,11 @@
+import datetime
+
 import mdptoolbox
 import numpy as np
+import pandas as pd
+from numpy.core.fromnumeric import size
+from numpy.core.numeric import Inf
+from numpy.lib.index_tricks import IndexExpression
 from scipy.sparse import csr_matrix as sparse
 
 IRRELEVANT, RELEVANT, ACTIVE = 0, 1, 2
@@ -45,35 +51,9 @@ def clear_value_in_diagonal(matrix, indexs):
         matrix[index][index] = 0
 
 
-def convert_matrix_to_sparse(A, H):
-    A = [sparse(A[ADOPT]), sparse(A[OVERRIDE]),
-         sparse(A[WAIT]), sparse(A[MATCH])]
-    H = [sparse(H[ADOPT]), sparse(H[OVERRIDE]),
-         sparse(H[WAIT]), sparse(H[MATCH])]
-    return A, H
-
-
-def adjust_reward_with_overpaying(A, H, alpha, rho):
-    # reward under action adopt.
-    for a in range(0, rounds):
-        for h in range(0, rounds):
-            if a == rounds-1 or h == rounds-1:
-                index_row_begin = get_index(
-                    a, h, IRRELEVANT, rounds, fork_states_num)
-                index_row_end = index_row_begin+2
-                if a == rounds-1:
-                    for index_column_current in [get_index(1, 0, IRRELEVANT, rounds, fork_states_num), get_index(0, 1, IRRELEVANT, rounds, fork_states_num)]:
-                        A[ADOPT, index_row_begin:index_row_end + 1,
-                            index_column_current] = overpaying_reward_agh(rho, alpha, a, h)
-                        H[ADOPT, index_row_begin:index_row_end +
-                            1, index_column_current] = 0
-                elif h == rounds-1:
-                    for index_column_current in [get_index(1, 0, IRRELEVANT, rounds, fork_states_num), get_index(0, 1, IRRELEVANT, rounds, fork_states_num)]:
-                        A[ADOPT, index_row_begin:index_row_end + 1,
-                            index_column_current] = overpaying_reward_hga(rho, alpha, a, h)
-                        H[ADOPT, index_row_begin:index_row_end +
-                            1, index_column_current] = 0
-    return A, H
+def monitor_value(matrix, a, h, f, rounds, fork_states_num):
+    index = get_index(a, h, f, rounds, fork_states_num)
+    return matrix[index][index]
 
 
 def generate_probability_matrix(states_num, action_num, rounds, fork_states_num, alpha, gamma):
@@ -185,12 +165,11 @@ def generate_probability_matrix(states_num, action_num, rounds, fork_states_num,
     return P
 
 
-def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_type):
-    A = np.zeros([action_num, states_num, states_num])
-    H = np.zeros([action_num, states_num, states_num])
+def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alpha, rho, pay_type):
+    R = np.zeros([action_num, states_num, states_num])
 
     for action in [OVERRIDE, WAIT, MATCH]:
-        np.fill_diagonal(H[action], 100000)
+        np.fill_diagonal(R[action], -100000)
 
     # reward under action adopt.
     for a in range(0, rounds):
@@ -202,14 +181,36 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_
             adversary_height, honest_height = 1, 0
             index_column_current = get_index(adversary_height, honest_height,
                                              IRRELEVANT, rounds, fork_states_num)
-            H[ADOPT, index_row_begin:index_row_end +
-              1, index_column_current] += h
+            if pay_type == UNDERPAYING:
+                R[ADOPT, index_row_begin:index_row_end +
+                    1, index_column_current] += -rho * h
+            else:
+                if a == rounds-1:
+                    R[ADOPT, index_row_begin:index_row_end +
+                      1, index_column_current] += (1-rho) * overpaying_reward_agh(rho, alpha, a, h)
+                elif h == rounds-1:
+                    R[ADOPT, index_row_begin:index_row_end +
+                      1, index_column_current] += (1-rho)*overpaying_reward_hga(rho, alpha, a, h)
+                else:
+                    R[ADOPT, index_row_begin:index_row_end +
+                        1, index_column_current] += -rho * h
 
             adversary_height, honest_height = 0, 1
             index_column_current = get_index(adversary_height, honest_height,
                                              IRRELEVANT, rounds, fork_states_num)
-            H[ADOPT, index_row_begin:index_row_end +
-              1, index_column_current] += h
+            if pay_type == UNDERPAYING:
+                R[ADOPT, index_row_begin:index_row_end +
+                    1, index_column_current] += -rho * h
+            else:
+                if a == rounds-1:
+                    R[ADOPT, index_row_begin:index_row_end +
+                      1, index_column_current] += (1-rho) * overpaying_reward_agh(rho, alpha, a, h)
+                elif h == rounds-1:
+                    R[ADOPT, index_row_begin:index_row_end +
+                      1, index_column_current] += (1-rho)*overpaying_reward_hga(rho, alpha, a, h)
+                else:
+                    R[ADOPT, index_row_begin:index_row_end +
+                        1, index_column_current] += -rho * h
 
     # reward under action override.
     for a in range(0, rounds-1):
@@ -220,18 +221,16 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_
                 index_row_end = index_row_begin+2
 
                 clear_value_in_diagonal(
-                    A[OVERRIDE], range(index_row_begin, index_row_end+1))
-                clear_value_in_diagonal(
-                    H[OVERRIDE], range(index_row_begin, index_row_end+1))
+                    R[OVERRIDE], range(index_row_begin, index_row_end+1))
 
                 index_column_current = get_index(
                     (a-h), 0, IRRELEVANT, rounds, fork_states_num)
-                A[OVERRIDE, index_row_begin:index_row_end+1,
-                    index_column_current] += h+1
+                R[OVERRIDE, index_row_begin:index_row_end+1,
+                    index_column_current] += (1-rho) * (h+1)
                 index_column_current = get_index(
                     (a-h-1), 1, RELEVANT, rounds, fork_states_num)
-                A[OVERRIDE, index_row_begin:index_row_end+1,
-                    index_column_current] += h+1
+                R[OVERRIDE, index_row_begin:index_row_end+1,
+                    index_column_current] += (1-rho) * (h+1)
 
     # reward under action wait.
     for a in range(0, rounds-1):
@@ -240,12 +239,9 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_
             index_row = get_index(
                 a, h, ACTIVE, rounds, fork_states_num)
             clear_value_in_diagonal(
-                A[WAIT], [index_row])
-            clear_value_in_diagonal(
-                H[WAIT], [index_row])
-
-            A[WAIT, index_row, get_index(
-                a-h, 1, RELEVANT, rounds, fork_states_num)] += h
+                R[WAIT], [index_row])
+            R[WAIT, index_row, get_index(
+                a-h, 1, RELEVANT, rounds, fork_states_num)] += (1-rho)*h
 
     # reward under action match.
     for a in range(0, rounds-1):
@@ -254,45 +250,40 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_
                 index_row = get_index(
                     a, h, RELEVANT, rounds, fork_states_num)
                 clear_value_in_diagonal(
-                    A[MATCH], [index_row])
-                clear_value_in_diagonal(
-                    H[MATCH], [index_row])
+                    R[MATCH], [index_row])
+                R[MATCH, index_row, get_index(
+                    a-h, 1, RELEVANT, rounds, fork_states_num)] += (1-rho)*h
 
-                A[WAIT, index_row, get_index(
-                    a-h, 1, RELEVANT, rounds, fork_states_num)] += h
-    if pay_type == UNDERPAYING:
-        A, H = convert_matrix_to_sparse(A, H)
-    return A, H
+    R = [sparse(R[ADOPT]), sparse(R[OVERRIDE]),
+         sparse(R[WAIT]), sparse(R[MATCH])]
+    return R
 
 
 if __name__ == "__main__":
-    epsilon = pow(10, -5)
-    rounds = 30
+    starttime = datetime.datetime.now()
+    low, high, epsilon = 0, 1, pow(10, -5)
+    rounds = 96
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3
     # four actions: adopt, override, wait, match.
     action_num, fork_states_num = 4, 3
     gamma = 0
-    # for alpha in range(350, 500, 25):
-    # for alpha in range(400, 500, 25):
     for alpha in [450]:
         alpha /= 1000
+        # generate P.
         P = generate_probability_matrix(
             states_num, action_num, rounds, fork_states_num, alpha, gamma)
-        low, high = 0, 1
+
         # UNDERPAYING
-        A, H = generate_reward_matrix(
-            states_num, action_num, rounds, fork_states_num, UNDERPAYING)
         while high-low > epsilon/8:
             rho = (low+high)/2
-            R = []
             # generate Reward with different rho.
-            for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-                R.append((1-rho)*A[action]-rho*H[action])
+            R = generate_reward_matrix(
+                states_num, action_num, rounds, fork_states_num, alpha, rho, UNDERPAYING)
+
             rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
             rvi.run()
-
             if rvi.average_reward > 0:
                 low = rho
             else:
@@ -300,25 +291,20 @@ if __name__ == "__main__":
         print("low bound: alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
 
         # OVERPAYING
-        high = min(rho+0.1, 1)
-
-        A, H = generate_reward_matrix(
-            states_num, action_num, rounds, fork_states_num, OVERPAYING)
+        low = rho
+        high = min(rho + 0.1, 1)
 
         while high-low > epsilon/8:
             rho = (low+high)/2
-            A_current, H__current = adjust_reward_with_overpaying(
-                A, H, alpha, rho)
-            A_current, H__current = convert_matrix_to_sparse(
-                A_current, H__current)
-            R = []
+
             # generate Reward with different rho.
-            for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-                R.append((1-rho)*A_current[action]-rho*H__current[action])
+            R = generate_reward_matrix(
+                states_num, action_num, rounds, fork_states_num, alpha, rho, OVERPAYING)
+            # for action in [OVERPAYING, WAIT, MATCH]:
             rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
             rvi.run()
             if rvi.average_reward > 0:
                 low = rho
             else:
                 high = rho
-        print("upper bound: alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
+        print("high bound: alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
