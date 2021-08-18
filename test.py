@@ -1,14 +1,13 @@
 import mdptoolbox
 import mdptoolbox.example
+import numpy as np
 from scipy.sparse import csr_matrix as sparse
 
-P, R = mdptoolbox.example.forest(S=2400, r1=4, r2=2)
-rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
+a = np.zeros([2, 2])
 
-P = [sparse(P[0]), sparse(P[1])]
-R = sparse(R)
-# print(P)
-print(R)
-# print(R.shape)
-rvi.run()
-rvi.average_reward
+a[0][0] = 1
+a = sparse(a)
+
+print(a[0][0])
+print(type(a))
+print(a)
