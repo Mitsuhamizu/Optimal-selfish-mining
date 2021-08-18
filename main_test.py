@@ -262,7 +262,7 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, alph
 if __name__ == "__main__":
     starttime = datetime.datetime.now()
     low, high, epsilon = 0, 1, pow(10, -5)
-    rounds = 96
+    rounds = 30
 
     # There are three different fork for the sanme height combination.
     states_num = rounds*rounds*3

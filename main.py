@@ -301,20 +301,19 @@ if __name__ == "__main__":
 
         # OVERPAYING
         high = min(rho+0.1, 1)
-
+        low = rho
         A, H = generate_reward_matrix(
             states_num, action_num, rounds, fork_states_num, OVERPAYING)
-
         while high-low > epsilon/8:
             rho = (low+high)/2
-            A_current, H__current = adjust_reward_with_overpaying(
+            A_current, H_current = adjust_reward_with_overpaying(
                 A, H, alpha, rho)
-            A_current, H__current = convert_matrix_to_sparse(
-                A_current, H__current)
+            A_current, H_current = convert_matrix_to_sparse(
+                A_current, H_current)
             R = []
             # generate Reward with different rho.
             for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-                R.append((1-rho)*A_current[action]-rho*H__current[action])
+                R.append((1-rho)*A_current[action]-rho*H_current[action])
             rvi = mdptoolbox.mdp.RelativeValueIteration(P, R)
             rvi.run()
             if rvi.average_reward > 0:
