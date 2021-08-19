@@ -266,18 +266,21 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_
 
 
 if __name__ == "__main__":
-    epsilon = pow(10, -5)
-    rounds = 30
-
+    epsilon = 0.0001
     # There are three different fork for the sanme height combination.
-    states_num = rounds*rounds*3
+
     # four actions: adopt, override, wait, match.
     action_num, fork_states_num = 4, 3
     gamma = 0
     # for alpha in range(350, 500, 25):
     # for alpha in range(400, 500, 25):
-    for alpha in [450]:
-        alpha /= 1000
+    # for alpha in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
+    for alpha in [0.45]:
+        if alpha <= 0.4:
+            rounds = 80-1
+        else:
+            rounds = 160-1
+        states_num = rounds*rounds*3
         P = generate_probability_matrix(
             states_num, action_num, rounds, fork_states_num, alpha, gamma)
         low, high = 0, 1
