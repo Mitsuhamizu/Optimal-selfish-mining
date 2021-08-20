@@ -1,6 +1,10 @@
+import os
+
 import mdptoolbox
 import numpy as np
+import psutil
 from scipy.sparse import csr_matrix as sparse
+from scipy.sparse import lil_matrix as sparse_lil
 
 IRRELEVANT, RELEVANT, ACTIVE = 0, 1, 2
 
@@ -20,6 +24,15 @@ actions[0] = "ADOPT"
 actions[1] = "OVERRIDE"
 actions[2] = "WAIT"
 actions[3] = "MATCH"
+
+
+def show_memory_info(hint):
+    pid = os.getpid()
+    p = psutil.Process(pid)
+
+    info = p.memory_full_info()
+    memory = info.uss / 1024. / 1024
+    print('{} memory used: {} MB'.format(hint, memory))
 
 
 def overpaying_reward_agh(rho, alpha, a, h):
@@ -46,15 +59,25 @@ def clear_value_in_diagonal(matrix, indexs):
 
 
 def convert_matrix_to_sparse(A, H):
-    A = [sparse(A[ADOPT]), sparse(A[OVERRIDE]),
-         sparse(A[WAIT]), sparse(A[MATCH])]
-    H = [sparse(H[ADOPT]), sparse(H[OVERRIDE]),
-         sparse(H[WAIT]), sparse(H[MATCH])]
+    A = np.array([sparse(A[ADOPT]), sparse(A[OVERRIDE]),
+                  sparse(A[WAIT]), sparse(A[MATCH])])
+    H = np.array([sparse(H[ADOPT]), sparse(H[OVERRIDE]),
+                  sparse(H[WAIT]), sparse(H[MATCH])])
+    return A, H
+
+
+def convert_matrix_to_dense(A, H):
+
+    A = np.array([(A[ADOPT]).toarray(), (A[OVERRIDE]).toarray(),
+                  (A[WAIT]).toarray(), (A[MATCH]).toarray()])
+    H = np.array([(H[ADOPT]).toarray(), (H[OVERRIDE]).toarray(),
+                  (H[WAIT]).toarray(), (H[MATCH]).toarray()])
     return A, H
 
 
 def adjust_reward_with_overpaying(A, H, alpha, rho):
     # reward under action adopt.
+    A, H = convert_matrix_to_dense(A, H)
     for a in range(0, rounds):
         for h in range(0, rounds):
             if a == rounds-1 or h == rounds-1:
@@ -65,14 +88,15 @@ def adjust_reward_with_overpaying(A, H, alpha, rho):
                     for index_column_current in [get_index(1, 0, IRRELEVANT, rounds, fork_states_num), get_index(0, 1, IRRELEVANT, rounds, fork_states_num)]:
                         A[ADOPT, index_row_begin:index_row_end + 1,
                             index_column_current] = overpaying_reward_agh(rho, alpha, a, h)
-                        H[ADOPT, index_row_begin:index_row_end +
+                        H[ADOPT, index_row_begin: index_row_end +
                             1, index_column_current] = 0
                 elif h == rounds-1:
                     for index_column_current in [get_index(1, 0, IRRELEVANT, rounds, fork_states_num), get_index(0, 1, IRRELEVANT, rounds, fork_states_num)]:
-                        A[ADOPT, index_row_begin:index_row_end + 1,
+                        A[ADOPT, index_row_begin: index_row_end + 1,
                             index_column_current] = overpaying_reward_hga(rho, alpha, a, h)
-                        H[ADOPT, index_row_begin:index_row_end +
+                        H[ADOPT, index_row_begin: index_row_end +
                             1, index_column_current] = 0
+    A, H = convert_matrix_to_sparse(A, H)
     return A, H
 
 
@@ -260,8 +284,7 @@ def generate_reward_matrix(states_num, action_num, rounds, fork_states_num, pay_
 
                 A[WAIT, index_row, get_index(
                     a-h, 1, RELEVANT, rounds, fork_states_num)] += h
-    if pay_type == UNDERPAYING:
-        A, H = convert_matrix_to_sparse(A, H)
+    A, H = convert_matrix_to_sparse(A, H)
     return A, H
 
 
@@ -275,11 +298,12 @@ if __name__ == "__main__":
     # for alpha in range(350, 500, 25):
     # for alpha in range(400, 500, 25):
     # for alpha in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
-    for alpha in [0.45]:
+    # for alpha in [0.425, 0.45, 0.475]:
+    for alpha in [0.45, 0.475]:
         if alpha <= 0.4:
             rounds = 80-1
         else:
-            rounds = 160-1
+            rounds = 90
         states_num = rounds*rounds*3
         P = generate_probability_matrix(
             states_num, action_num, rounds, fork_states_num, alpha, gamma)
@@ -290,6 +314,8 @@ if __name__ == "__main__":
         while high-low > epsilon/8:
             rho = (low+high)/2
             R = []
+            show_memory_info(
+                "underpaying alpha: {}, rho: {}".format(alpha, rho))
             # generate Reward with different rho.
             for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
                 R.append((1-rho)*A[action]-rho*H[action])
@@ -313,6 +339,8 @@ if __name__ == "__main__":
                 A, H, alpha, rho)
             A_current, H_current = convert_matrix_to_sparse(
                 A_current, H_current)
+            show_memory_info(
+                "overpaying alpha: {}, rho: {}".format(alpha, rho))
             R = []
             # generate Reward with different rho.
             for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
