@@ -4,5 +4,8 @@ import numpy as np
 from scipy.sparse import coo_matrix as sparse_coo
 from scipy.sparse import csr_matrix as sparse_csr
 
-a = np.array([np.array([[0, 1], [0, 2]]), np.array([[0, 1], [0, 2]])])
-print(a[0, 0, 0])
+values = [1, 2, 3, 4, 6]
+rows = [0, 1, 2, 3, 0]
+cols = [1, 3, 2, 0, 1]
+A = sparse_coo((values, (rows, cols)), shape=[4, 4])
+print(A)
