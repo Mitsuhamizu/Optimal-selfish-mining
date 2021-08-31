@@ -413,7 +413,7 @@ if __name__ == "__main__":
         #     rounds = 80 - 1
         # else:
         #     rounds = 160 - 1
-        rounds = 96
+        rounds = 95
         states_num = rounds * rounds * 3
         P, A, H = generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma)
         low, high = 0, 1
