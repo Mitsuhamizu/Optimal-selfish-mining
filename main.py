@@ -406,46 +406,49 @@ def generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma):
 if __name__ == "__main__":
     epsilon = 0.0001
     action_num, fork_states_num = 4, 3
-    gamma = 0
-    for alpha in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
-        # for alpha in [0.1]:
-        # if alpha <= 0.4:
-        #     rounds = 80 - 1
-        # else:
-        #     rounds = 160 - 1
-        rounds = 95
-        states_num = rounds * rounds * 3
-        P, A, H = generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma)
-        low, high = 0, 1
-        # UNDERPAYING
-        while high - low > epsilon / 8:
-            rho = (low + high) / 2
-            R = [None] * 4
-            # generate Reward with different rho.
-            for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-                R[action] = (1 - rho) * A[action] - rho * H[action]
-            rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, epsilon=epsilon / 8)
-            rvi.run()
-
-            if rvi.average_reward > 0:
-                low = rho
+    for gamma in [0.5, 1]:
+        for alpha in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
+            # for alpha in [0.1]:
+            if alpha <= 0.4:
+                rounds = 80 + 1
             else:
-                high = rho
-        print("low bound: alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
-
-        low_bound = rho - epsilon
-        rho_prime = max(low - epsilon / 4, 0)
-        A, H = adjust_reward_with_overpaying(A, H, alpha, rho)
-        # generate Reward with different rho.
-        for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
-            R[action] = (1 - rho_prime) * A[action] - rho_prime * H[action]
-        rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, epsilon=epsilon / 8)
-        rvi.run()
-        print(
-            "upper bound: alpha: {}, gamma: {}, rho: {}".format(
-                alpha, gamma, rho_prime + 2 * (rvi.average_reward + epsilon)
+                rounds = 160 + 1
+            states_num = rounds * rounds * 3
+            P, A, H = generate_matrixs(
+                states_num, rounds, fork_states_num, alpha, gamma
             )
-        )
+            low, high = 0, 1
+            # UNDERPAYING
+            while high - low > epsilon / 8:
+                rho = (low + high) / 2
+                R = [None] * 4
+                # generate Reward with different rho.
+                for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+                    R[action] = (1 - rho) * A[action] - rho * H[action]
+                rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, epsilon=epsilon / 8)
+                rvi.run()
+
+                if rvi.average_reward > 0:
+                    low = rho
+                else:
+                    high = rho
+            print(
+                "low bound: alpha: {}, gamma: {}, rho: {:.4f}".format(alpha, gamma, rho)
+            )
+
+        # low_bound = rho - epsilon
+        # rho_prime = max(low - epsilon / 4, 0)
+        # A, H = adjust_reward_with_overpaying(A, H, alpha, rho)
+        # # generate Reward with different rho.
+        # for action in [ADOPT, OVERRIDE, WAIT, MATCH]:
+        #     R[action] = (1 - rho_prime) * A[action] - rho_prime * H[action]
+        # rvi = mdptoolbox.mdp.RelativeValueIteration(P, R, epsilon=epsilon / 8)
+        # rvi.run()
+        # print(
+        #     "upper bound: alpha: {}, gamma: {}, rho: {}".format(
+        #         alpha, gamma, rho_prime + 2 * (rvi.average_reward + epsilon)
+        #     )
+        # )
 
         # # OVERPAYING
         # high = min(rho + 0.1, 1)
@@ -464,4 +467,4 @@ if __name__ == "__main__":
         #         low = rho
         #     else:
         #         high = rho
-        # print("upper bound: alpha: {}, gamma: {}, rho: {}".format(alpha, gamma, rho))
+        # print("upper bound: alpha: {}, gamma: {}, rho: {:.4f}".format(alpha, gamma, rho))
