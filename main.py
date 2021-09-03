@@ -188,9 +188,8 @@ def generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma):
         [index_column_current] * states_num,
         [1 - alpha] * states_num,
     )
-    # probability under action override.
-    # only works for a > h.
-    # I am wrong at the first attempt. PLZ remember it !!!
+
+    # reward of adopt.
     for a in range(0, rounds):
         for h in range(0, rounds):
             index_row_begin = get_index(a, h, IRRELEVANT, rounds, fork_states_num)
@@ -229,11 +228,12 @@ def generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma):
 
     for a in range(rounds - 1):
         for h in range(rounds - 1):
-            # get row.
             index_row_begin = get_index(a, h, IRRELEVANT, rounds, fork_states_num)
             index_row_end = index_row_begin + fork_states_num
             values_zero = [0] * fork_states_num
             index_row_interval = [i for i in range(index_row_begin, index_row_end)]
+            
+            # override
             if a > h:
                 # clear diagonal.
                 P[OVERRIDE]["values"][index_row_begin:index_row_end] = values_zero
