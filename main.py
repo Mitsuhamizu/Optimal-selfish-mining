@@ -232,7 +232,7 @@ def generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma):
             index_row_end = index_row_begin + fork_states_num
             values_zero = [0] * fork_states_num
             index_row_interval = [i for i in range(index_row_begin, index_row_end)]
-            
+
             # override
             if a > h:
                 # clear diagonal.
@@ -410,9 +410,10 @@ if __name__ == "__main__":
         for alpha in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
             # for alpha in [0.1]:
             if alpha <= 0.4:
-                rounds = 80 + 1
+                max_fork_len = 80
             else:
-                rounds = 160 + 1
+                max_fork_len = 160
+            rounds = max_fork_len + 1
             states_num = rounds * rounds * 3
             P, A, H = generate_matrixs(
                 states_num, rounds, fork_states_num, alpha, gamma
