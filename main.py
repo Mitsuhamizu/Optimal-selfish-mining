@@ -116,14 +116,12 @@ def generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma):
 
     # probability under action adopt.
     matrixs[ADOPT].row[0:states_num] = ordered_list
-    matrixs[ADOPT].col[0:states_num] = np.ones([states_num]) * index_base_adversary_mine
-    matrixs[ADOPT].p[0:states_num] = np.ones([states_num]) * alpha
+    matrixs[ADOPT].col[0:states_num] = ones * index_base_adversary_mine
+    matrixs[ADOPT].p[0:states_num] = ones * alpha
 
     matrixs[ADOPT].row[states_num : 2 * states_num] = ordered_list
-    matrixs[ADOPT].col[states_num : 2 * states_num] = (
-        np.ones([states_num]) * index_base_honest_mine
-    )
-    matrixs[ADOPT].p[states_num : 2 * states_num] = np.ones([states_num]) * (1 - alpha)
+    matrixs[ADOPT].col[states_num : 2 * states_num] = ones * index_base_honest_mine
+    matrixs[ADOPT].p[states_num : 2 * states_num] = ones * (1 - alpha)
     matrixs[ADOPT].cursor = 2 * states_num
 
     # iter
@@ -224,7 +222,6 @@ def generate_matrixs(states_num, rounds, fork_states_num, alpha, gamma):
     # Finish the matrix generation, then try to transfer it to sparse metrixs.
     for action in actions_lib:
         P[action], A[action], H[action] = matrixs[action].transfer_to_sparse(states_num)
-    # get the result.
     return P, A, H
 
 
